@@ -1239,7 +1239,6 @@ class OmniGenomeForSequenceClassification(OmniGenomePreTrainedModel):
         self.num_labels = config.num_labels
         self.config = config
         self.OmniGenome = OmniGenomeModel(config, add_pooling_layer=False)
-        self.pooler = OmniGenomePooler(config)
         self.classifier = OmniGenomeClassificationHead(config)
         self.init_weights()
 
@@ -1284,9 +1283,7 @@ class OmniGenomeForSequenceClassification(OmniGenomePreTrainedModel):
             return_dict=return_dict,
         )
         last_hidden_state = outputs[0]
-        last_hidden_state = self.dense(last_hidden_state)
-        pooled_output = self.pooler(last_hidden_state)
-        logits = self.classifier(pooled_output)
+        logits = self.classifier(last_hidden_state)
 
         loss = None
         if labels is not None:
