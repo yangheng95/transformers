@@ -96,6 +96,7 @@ MODEL_MAPPING_NAMES = OrderedDict(
         ("ernie", "ErnieModel"),
         ("ernie_m", "ErnieMModel"),
         ("esm", "EsmModel"),
+        ("omnigenome", "OmniGenomeModel"),
         ("falcon", "FalconModel"),
         ("fastspeech2_conformer", "FastSpeech2ConformerModel"),
         ("flaubert", "FlaubertModel"),
@@ -366,6 +367,7 @@ MODEL_WITH_LM_HEAD_MAPPING_NAMES = OrderedDict(
         ("encoder-decoder", "EncoderDecoderModel"),
         ("ernie", "ErnieForMaskedLM"),
         ("esm", "EsmForMaskedLM"),
+        ("omnigenome", "OmniGenomeForMaskedLM"),
         ("flaubert", "FlaubertWithLMHeadModel"),
         ("fnet", "FNetForMaskedLM"),
         ("fsmt", "FSMTForConditionalGeneration"),
@@ -723,6 +725,7 @@ MODEL_FOR_MASKED_LM_MAPPING_NAMES = OrderedDict(
         ("electra", "ElectraForMaskedLM"),
         ("ernie", "ErnieForMaskedLM"),
         ("esm", "EsmForMaskedLM"),
+        ("omnigenome", "OmniGenomeForMaskedLM"),
         ("flaubert", "FlaubertWithLMHeadModel"),
         ("fnet", "FNetForMaskedLM"),
         ("funnel", "FunnelForMaskedLM"),
@@ -815,6 +818,7 @@ MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING_NAMES = OrderedDict(
         ("t5", "T5ForConditionalGeneration"),
         ("umt5", "UMT5ForConditionalGeneration"),
         ("xlm-prophetnet", "XLMProphetNetForConditionalGeneration"),
+        ("omnigenome", "OmniGenomeModelForSeq2SeqLM"),
     ]
 )
 
@@ -853,6 +857,7 @@ MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES = OrderedDict(
         ("ernie", "ErnieForSequenceClassification"),
         ("ernie_m", "ErnieMForSequenceClassification"),
         ("esm", "EsmForSequenceClassification"),
+        ("omnigenome", "OmniGenomeForSequenceClassification"),
         ("falcon", "FalconForSequenceClassification"),
         ("flaubert", "FlaubertForSequenceClassification"),
         ("fnet", "FNetForSequenceClassification"),
@@ -1034,6 +1039,7 @@ MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING_NAMES = OrderedDict(
         ("ernie", "ErnieForTokenClassification"),
         ("ernie_m", "ErnieMForTokenClassification"),
         ("esm", "EsmForTokenClassification"),
+        ("omnigenome", "OmniGenomeForTokenClassification"),
         ("falcon", "FalconForTokenClassification"),
         ("flaubert", "FlaubertForTokenClassification"),
         ("fnet", "FNetForTokenClassification"),

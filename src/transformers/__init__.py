@@ -377,6 +377,7 @@ _import_structure = {
     "models.ernie": ["ErnieConfig"],
     "models.ernie_m": ["ErnieMConfig"],
     "models.esm": ["EsmConfig", "EsmTokenizer"],
+    "models.omnigenome": ["OmniGenomeConfig"],
     "models.falcon": ["FalconConfig"],
     "models.fastspeech2_conformer": [
         "FastSpeech2ConformerConfig",
@@ -1955,6 +1956,18 @@ else:
             "EsmForTokenClassification",
             "EsmModel",
             "EsmPreTrainedModel",
+        ]
+    )
+    _import_structure["models.omnigenome"].extend(
+        [
+            "OMNIGENOME_PRETRAINED_MODEL_ARCHIVE_LIST",
+            "OmniGenomeFoldPreTrainedModel",
+            "OmniGenomeForMaskedLM",
+            "OmniGenomeForSequenceClassification",
+            "OmniGenomeForTokenClassification",
+            "OmniGenomeModel",
+            "OmniGenomeModelForSeq2SeqLM",
+            "OmniGenomePreTrainedModel",
         ]
     )
     _import_structure["models.falcon"].extend(
@@ -4950,6 +4963,7 @@ if TYPE_CHECKING:
     from .models.ernie import ErnieConfig
     from .models.ernie_m import ErnieMConfig
     from .models.esm import EsmConfig, EsmTokenizer
+    from .models.omnigenome import OmniGenomeConfig
     from .models.falcon import FalconConfig
     from .models.fastspeech2_conformer import (
         FastSpeech2ConformerConfig,
@@ -6449,6 +6463,16 @@ if TYPE_CHECKING:
             EsmForTokenClassification,
             EsmModel,
             EsmPreTrainedModel,
+        )
+        from .models.omnigenome import (
+            OMNIGENOME_PRETRAINED_MODEL_ARCHIVE_LIST,
+            OmniGenomeFoldPreTrainedModel,
+            OmniGenomeForMaskedLM,
+            OmniGenomeForSequenceClassification,
+            OmniGenomeForTokenClassification,
+            OmniGenomeModel,
+            OmniGenomeModelForSeq2SeqLM,
+            OmniGenomePreTrainedModel,
         )
         from .models.falcon import (
             FalconForCausalLM,

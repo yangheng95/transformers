@@ -172,6 +172,7 @@ else:
             ("ernie", ("BertTokenizer", "BertTokenizerFast" if is_tokenizers_available() else None)),
             ("ernie_m", ("ErnieMTokenizer" if is_sentencepiece_available() else None, None)),
             ("esm", ("EsmTokenizer", None)),
+            ("omnigenome", ("EsmTokenizer", None)),
             ("falcon", (None, "PreTrainedTokenizerFast" if is_tokenizers_available() else None)),
             (
                 "fastspeech2_conformer",

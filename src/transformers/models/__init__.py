@@ -85,6 +85,7 @@ from . import (
     ernie,
     ernie_m,
     esm,
+    omnigenome,
     falcon,
     fastspeech2_conformer,
     flaubert,
