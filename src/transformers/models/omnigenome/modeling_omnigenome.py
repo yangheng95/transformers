@@ -1430,13 +1430,24 @@ class OmniGenomeForTokenClassification(OmniGenomePreTrainedModel):
 
     def predict_rna_structure(
             self,
-            input_ids: Optional[torch.LongTensor] = None,
-            attention_mask: Optional[torch.Tensor] = None,
+            sequence: str,
             **kwargs
     ) -> List[str]:
+        r"""
+        Load the pretrained OmniGenome Model to do zero-shot prediction of the secondary structure
+         of a sequence given the sequence
         """
-        Predicts the secondary structure of a sequence given the logits and attention mask.
-        """
+        if self.tokenizer is None:
+            tokenizer = kwargs.get("tokenizer", None)
+            if tokenizer is None:
+                from transformers import AutoTokenizer
+                self.tokenizer = AutoTokenizer.from_pretrained(self.config.name_or_path)
+            else:
+                self.tokenizer = tokenizer
+
+        inputs = self.tokenizer(sequence, return_tensors="pt", padding="max_length", truncation=True)
+        input_ids = inputs["input_ids"]
+        attention_mask = inputs["attention_mask"]
         outputs = self.forward(input_ids, attention_mask, **kwargs)
 
         logits = torch.argmax(outputs.logits, dim=-1)
@@ -1518,7 +1529,10 @@ class OmniGenomeModelForSeq2SeqLM(OmniGenomePreTrainedModel):
             else:
                 self.tokenizer = tokenizer
 
-        candidates = self.genetic_algorithm_for_rna_design(structure, predict_structure_func=None, **kwargs)
+        candidates = self.genetic_algorithm_for_rna_design(
+            structure,
+            predict_structure_func,
+            **kwargs)
 
         return candidates
 
@@ -1589,36 +1603,14 @@ class OmniGenomeModelForSeq2SeqLM(OmniGenomePreTrainedModel):
 
         return population
 
-    def mlm_mutate(self, population, structure, mutation_ratio=0.2):
-        def mutate(sequence, mutation_rate=0.2):
+    def mlm_mutate(self, population, structure, mutation_ratio):
+        def mutate(sequence, mutation_rate):
             sequence = np.array(list(sequence), dtype=np.str_)
             probability_matrix = np.full(sequence.shape, mutation_rate)
             masked_indices = np.random.rand(*sequence.shape) < probability_matrix
             sequence[masked_indices] = "$"
             mut_seq = "".join(sequence.tolist()).replace("$", "<mask>")
             return mut_seq
-        def mutate_with_spans_mask(sequence, mutation_rate=0.2):
-            sequence = np.array(list(sequence), dtype=np.str_)
-            length = len(sequence)
-            num_mutations = int(mutation_rate * length)  # Total number of mutations is based on mutation rate
-            # Decide the average span length; we assume mutation spans about 20% of the total mutations length
-            average_span_length = random.randint(1, max(1, int(length * mutation_rate / 10)))
-            # Initialize mutation points
-            mutation_points = np.random.choice(length, num_mutations, replace=False)  # Start points for mutations
-            # Create the mask
-            mask = np.zeros(length, dtype=bool)
-            for start in mutation_points:
-                end = start + average_span_length
-                if end > length:
-                    end = length
-                mask[start:end] = True  # Masking a span from start to end
-            # Apply mask
-            sequence[mask] = "<mask>"
-            # Combine the masked parts with the rest of the sequence
-            mutated_sequence = ''.join(sequence)
-            # Since multiple consecutive '<mask>'s might occur, replace them with a single '<mask>'
-            mutated_sequence = mutated_sequence.replace('<mask>' * average_span_length, '<mask>')
-            return mutated_sequence
 
         # Initialize lists to store population data and inputs for masked language model
         mlm_inputs = []
@@ -1627,10 +1619,7 @@ class OmniGenomeModelForSeq2SeqLM(OmniGenomePreTrainedModel):
         # Iterate over the number of individuals in the population
         for sequence in population:
             # Create a sequence by randomly choosing nucleotides or a mask token for each position in the structure
-            if random.random() < 8:
-                masked_sequence = mutate(sequence, mutation_ratio)
-            else:
-                masked_sequence = mutate_with_spans_mask(sequence, mutation_ratio)
+            masked_sequence = mutate(sequence, mutation_ratio)
             masked_sequences.append(masked_sequence)
             mlm_inputs.append(f"{masked_sequence}<eos>{''.join(structure)}")
 
@@ -1714,6 +1703,8 @@ class OmniGenomeModelForSeq2SeqLM(OmniGenomePreTrainedModel):
                 outputs = self.lm_head(outputs)
                 outputs = outputs.argmax(dim=-1)
                 all_outputs.append(outputs)
+                del batch_mlm_inputs
+                del outputs
         outputs = torch.cat(all_outputs, dim=0)
         return outputs[:, 1:1 + len(structure)]
 
