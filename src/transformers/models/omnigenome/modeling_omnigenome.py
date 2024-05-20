@@ -19,7 +19,6 @@ import random
 import warnings
 from typing import List, Optional, Tuple, Union
 
-import numpy as np
 import torch
 import torch.utils.checkpoint
 from torch import nn
@@ -1428,7 +1427,7 @@ class OmniGenomeForTokenClassification(OmniGenomePreTrainedModel):
 
         return structure
 
-    def predict_rna_structure(
+    def fold(
             self,
             sequence: str,
             **kwargs
@@ -1437,7 +1436,7 @@ class OmniGenomeForTokenClassification(OmniGenomePreTrainedModel):
         Load the pretrained OmniGenome Model to do zero-shot prediction of the secondary structure
          of a sequence given the sequence
         """
-        if self.tokenizer is None:
+        if not hasattr(self, "tokenizer"):
             tokenizer = kwargs.get("tokenizer", None)
             if tokenizer is None:
                 from transformers import AutoTokenizer
@@ -1445,7 +1444,14 @@ class OmniGenomeForTokenClassification(OmniGenomePreTrainedModel):
             else:
                 self.tokenizer = tokenizer
 
-        inputs = self.tokenizer(sequence, return_tensors="pt", padding="max_length", truncation=True)
+        inputs = self.tokenizer(
+            sequence,
+            return_tensors="pt",
+            padding=kwargs.get("padding", "max_length"),
+            max_length=kwargs.get("max_length", 512),
+            truncation=kwargs.get("truncation", True),
+        )
+        inputs.to(self.device)
         input_ids = inputs["input_ids"]
         attention_mask = inputs["attention_mask"]
         outputs = self.forward(input_ids, attention_mask, **kwargs)
@@ -1458,7 +1464,7 @@ class OmniGenomeForTokenClassification(OmniGenomePreTrainedModel):
             structure = "".join(self.config.id2label[label] for label in structure)
             if self.config.verify_ss:
                 structure = self.verify_secondary_structure(structure)
-            structures.append(structure)
+            structures.append(structure[1:-1])
         return structures
 
 
@@ -1478,9 +1484,6 @@ class OmniGenomeModelForSeq2SeqLM(OmniGenomePreTrainedModel):
         self.num_generation = config.num_generation
         self.num_population = config.num_population
         self.init_weights()
-
-        self.tokenizer = None
-        self.predict_structure = None
 
         warnings.warn(f"This model {self.__class__.__name__} is not a real Seq2Seq model. "
                       f"Instead, this model is designed for RNA design tasks")
@@ -1510,9 +1513,9 @@ class OmniGenomeModelForSeq2SeqLM(OmniGenomePreTrainedModel):
             Labels for computing the token classification loss. Indices should be in `[0, ..., config.num_labels - 1]`.
         """
         raise NotImplementedError("This model is not designed for standard Seq2Seq tasks. "
-                                  "Use model.rna_sequence_design() for RNA sequences design instead.")
+                                  "Use model.design() for RNA sequences design instead.")
 
-    def rna_sequence_design(
+    def design(
             self,
             structure: str,
             predict_structure_func=None,
@@ -1521,7 +1524,7 @@ class OmniGenomeModelForSeq2SeqLM(OmniGenomePreTrainedModel):
         """
         Assemble the RNA sequence given the reference sequence structure
         """
-        if self.tokenizer is None:
+        if not hasattr(self, "tokenizer"):
             tokenizer = kwargs.get("tokenizer", None)
             if tokenizer is None:
                 from transformers import AutoTokenizer
@@ -1537,15 +1540,7 @@ class OmniGenomeModelForSeq2SeqLM(OmniGenomePreTrainedModel):
         return candidates
 
     def genetic_algorithm_for_rna_design(self, structure, predict_structure_func=None, **kwargs):
-        if predict_structure_func is None:
-            import ViennaRNA
 
-            def predict_structure(sequence):
-                return ViennaRNA.fold(sequence)[0]
-
-            predict_structure_func = predict_structure
-
-        self.predict_structure = predict_structure_func
         mutation_ratio = kwargs.get("mutation_ratio", 0.5)
         num_population = kwargs.get("num_population", self.num_population)
         num_generation = kwargs.get("num_generation", self.num_generation)
@@ -1553,13 +1548,21 @@ class OmniGenomeModelForSeq2SeqLM(OmniGenomePreTrainedModel):
         population = self.init_population(structure, num_population)
         population = self.mlm_mutate(population, structure, mutation_ratio=mutation_ratio)
         for generation_id in tqdm.tqdm(range(num_generation), desc="Designing RNA Sequence"):
-            population_fitness = self.sequence_fitness(population, structure)[:num_population]
+            population_fitness = self.evaluate_structure_fitness(
+                population,
+                structure,
+                predict_structure_func
+            )[:num_population]
             population = sorted(zip(population, population_fitness), key=lambda x: x[1])[:num_population]
             population = [x[0] for x in population]
             next_generation = population  # Elitism
             next_generation += self.crossover(population, structure)
             next_generation += self.mlm_mutate(next_generation, structure, mutation_ratio)
-            fitness_values = self.sequence_fitness(next_generation, structure)
+            fitness_values = self.evaluate_structure_fitness(
+                next_generation,
+                structure,
+                predict_structure_func
+            )
             next_generation = sorted(zip(next_generation, fitness_values), key=lambda x: x[1])
 
             candidate_sequences = []
@@ -1583,11 +1586,11 @@ class OmniGenomeModelForSeq2SeqLM(OmniGenomePreTrainedModel):
         for _ in range(num_population):  # Changed from self.num_population to num_population
             # Create a sequence by randomly choosing nucleotides or a mask token for each position in the structure
             masked_sequence = [
-                random.choice(["A", "G", "C", "T", "<mask>"])
+                random.choice(["A", "G", "C", "T", self.tokenizer.mask_token])
                 for _ in range(len(structure))
             ]
             masked_sequence_str = "".join(masked_sequence)
-            mlm_inputs.append(f"{masked_sequence_str}<eos>{''.join(structure)}")
+            mlm_inputs.append(f"{masked_sequence_str}{self.tokenizer.eos_token}{''.join(structure)}")
 
         # Call a function to predict outputs using the masked language model
         outputs = self.mlm_predict(mlm_inputs, structure)
@@ -1596,8 +1599,8 @@ class OmniGenomeModelForSeq2SeqLM(OmniGenomePreTrainedModel):
         for i in range(len(outputs)):
             sequence = self.tokenizer.convert_ids_to_tokens(outputs[i].tolist())
             fixed_sequence = [
-                x if x in "AGCT" else random.choice(["G", "C"])
-                for x, y in zip(sequence, list(mlm_inputs[i].replace('<mask>', '$')))
+                x if x in "AGCTNU" and y == '$' else (y if y and y != '$' else random.choice(["A", "T", "G", "C"]))
+                for x, y in zip(sequence, list(mlm_inputs[i].replace(self.tokenizer.mask_token, '$')))
             ]
             population.append("".join(fixed_sequence))
 
@@ -1605,35 +1608,31 @@ class OmniGenomeModelForSeq2SeqLM(OmniGenomePreTrainedModel):
 
     def mlm_mutate(self, population, structure, mutation_ratio):
         def mutate(sequence, mutation_rate):
+            import numpy as np
             sequence = np.array(list(sequence), dtype=np.str_)
             probability_matrix = np.full(sequence.shape, mutation_rate)
             masked_indices = np.random.rand(*sequence.shape) < probability_matrix
             sequence[masked_indices] = "$"
-            mut_seq = "".join(sequence.tolist()).replace("$", "<mask>")
+            mut_seq = "".join(sequence.tolist()).replace("$", self.tokenizer.mask_token)
             return mut_seq
 
-        # Initialize lists to store population data and inputs for masked language model
         mlm_inputs = []
         masked_sequences = []
 
-        # Iterate over the number of individuals in the population
         for sequence in population:
-            # Create a sequence by randomly choosing nucleotides or a mask token for each position in the structure
             masked_sequence = mutate(sequence, mutation_ratio)
             masked_sequences.append(masked_sequence)
-            mlm_inputs.append(f"{masked_sequence}<eos>{''.join(structure)}")
+            mlm_inputs.append(f"{masked_sequence}{self.tokenizer.eos_token}{''.join(structure)}")
 
-        # Call a function to predict outputs using the masked language model
         outputs = self.mlm_predict(mlm_inputs, structure)
 
         mut_population = []
 
-        # Decode the mlm outputs and construct the initial population
         for i in range(len(outputs)):
             sequence = self.tokenizer.convert_ids_to_tokens(outputs[i].tolist())
             fixed_sequence = [
-                x if x in "AGCT" else random.choice(["G", "C"])
-                for x, y in zip(sequence, list(masked_sequences[i].replace('<mask>', '$')))
+                x if x in "AGCTNU" and y == '$' else (y if y and y != '$' else random.choice(["A", "T", "G", "C"]))
+                for x, y in zip(sequence, list(masked_sequences[i].replace(self.tokenizer.mask_token, '$')))
             ]
             mut_population.append("".join(fixed_sequence))
 
@@ -1645,38 +1644,35 @@ class OmniGenomeModelForSeq2SeqLM(OmniGenomePreTrainedModel):
         for i in range(len(population)):
             parent1, parent2 = random.choices(population, k=2)
             pos = random.randint(1, len(parent1) - 1)
-            child1 = parent1[:pos] + "<mask>" * len(parent2[pos:])
-            child2 = "<mask>" * len(parent1[:pos]) + parent2[pos:]
-            batch_crossover_inputs.append(f"{child1}<eos>{structure}")
-            batch_crossover_inputs.append(f"{child2}<eos>{structure}")
+            child1 = parent1[:pos] + self.tokenizer.mask_token * len(parent2[pos:])
+            child2 = self.tokenizer.mask_token * len(parent1[:pos]) + parent2[pos:]
+            batch_crossover_inputs.append(f"{child1}{self.tokenizer.eos_token}{structure}")
+            batch_crossover_inputs.append(f"{child2}{self.tokenizer.eos_token}{structure}")
 
         outputs = self.mlm_predict(batch_crossover_inputs, structure)
 
         for i in range(len(outputs)):
             sequence = self.tokenizer.convert_ids_to_tokens(outputs[i].tolist())
             fixed_sequence = [
-                x if x in "AGCT" else random.choice(["G", "C"])
-                for x, y in zip(sequence, list(batch_crossover_inputs[i].replace('<mask>', '$')))
+                x if x in "AGCTNU" and y == '$' else (y if y and y != '$' else random.choice(["A", "T", "G", "C"]))
+                for x, y in zip(sequence, list(batch_crossover_inputs[i].replace(self.tokenizer.mask_token, '$')))
             ]
             crossover_population.append("".join(fixed_sequence))
 
         return crossover_population
 
-    def sequence_fitness(self, sequences, structure):
+    def evaluate_structure_fitness(self, sequences, structure, predict_structure_func):
+        if predict_structure_func is None:
+            predict_structure_func = predict_structure
+
+        structures = [predict_structure_func(sequence) for sequence in sequences]
+
         fitness_values = []
-        structures = [self.predict_structure(sequence) for sequence in sequences]
         for predicted_structure in structures:
             scores = []
             for i in range(len(predicted_structure)):
                 if predicted_structure[i] == structure[i]:
                     scores.append(1)
-                elif (
-                        predicted_structure[i] == ")"
-                        and structure[i] == "("
-                        or predicted_structure[i] == "("
-                        and structure[i] == ")"
-                ):
-                    scores.append(-3)
                 else:
                     scores.append(0)
             score = 1 - sum(scores) / len(structure)
@@ -1693,8 +1689,8 @@ class OmniGenomeModelForSeq2SeqLM(OmniGenomePreTrainedModel):
             for i in range(0, len(mlm_inputs), batch_size):
                 batch_mlm_inputs = self.tokenizer(
                     mlm_inputs[i:i + batch_size],
-                    padding=True,
-                    max_length=len(mlm_inputs[0]) // 2,
+                    padding=False,
+                    max_length=1024,
                     truncation=True,
                     return_tensors="pt",
                 )
@@ -1747,3 +1743,12 @@ def create_position_ids_from_input_ids(
                                   torch.cumsum(mask, dim=1).type_as(mask) + past_key_values_length
                           ) * mask
     return incremental_indices.long() + padding_idx
+
+
+def predict_structure(sequence):
+    import ViennaRNA
+    if isinstance(sequence, list):
+        structures = [ViennaRNA.fold(sequence)[0] for sequence in sequence]
+        return structures
+    else:
+        return ViennaRNA.fold(sequence)[0]

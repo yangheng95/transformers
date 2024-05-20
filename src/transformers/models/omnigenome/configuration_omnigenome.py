@@ -99,7 +99,7 @@ class OmniGenomeConfig(PretrainedConfig):
     # >>> # Accessing the model configuration >>> configuration = model.config
     ```"""
 
-    model_type = "mprna"
+    model_type = "omnigenome"
 
     def __init__(
         self,
@@ -119,9 +119,6 @@ class OmniGenomeConfig(PretrainedConfig):
         use_cache=True,
         emb_layer_norm_before=None,
         token_dropout=False,
-        is_folding_model=False,
-        OmniGenomefold_config=None,
-        vocab_list=None,
         **kwargs,
     ):
         super().__init__(
@@ -142,15 +139,7 @@ class OmniGenomeConfig(PretrainedConfig):
         self.use_cache = use_cache
         self.emb_layer_norm_before = emb_layer_norm_before
         self.token_dropout = token_dropout
-        self.is_folding_model = is_folding_model
-        self.OmniGenomefold_config = None
         self.vocab_list = None
-        if self.OmniGenomefold_config is not None and getattr(
-            self.OmniGenomefold_config, "use_OmniGenome_attn_map", False
-        ):
-            raise ValueError(
-                "The HuggingFace port of OmniGenomeFold does not support use_OmniGenome_attn_map at this time!"
-            )
 
     def to_dict(self):
         """
