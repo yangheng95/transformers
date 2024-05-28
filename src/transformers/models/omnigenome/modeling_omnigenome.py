@@ -1430,6 +1430,7 @@ class OmniGenomeForTokenClassification(OmniGenomePreTrainedModel):
     def fold(
             self,
             sequence: str,
+            verify_ss: bool = True,
             **kwargs
     ) -> List[str]:
         r"""
