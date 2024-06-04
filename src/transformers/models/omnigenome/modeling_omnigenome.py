@@ -48,11 +48,12 @@ from .configuration_omnigenome import OmniGenomeConfig
 
 logger = logging.get_logger(__name__)
 
-_CHECKPOINT_FOR_DOC = "yangheng/OmniGenome-52M"
+
+_CHECKPOINT_FOR_DOC = "anonymous8/OmniGenome-52M"
 _CONFIG_FOR_DOC = "OmniGenomeConfig"
 
 OmniGenome_PRETRAINED_MODEL_ARCHIVE_LIST = [
-    "yangheng/OmniGenome-52M",
+    "anonymous8/OmniGenome-52M",
     # This is not a complete list of all OmniGenome models!
     # See all OmniGenome models at https://huggingface.co/models?filter=OmniGenome
 ]

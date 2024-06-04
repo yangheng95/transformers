@@ -242,7 +242,7 @@ class OmniGenomeModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCa
 
     @slow
     def test_model_from_pretrained(self):
-        model_name = "yangheng/OmniGenome-52M"
+        model_name = "anonymous8/OmniGenome-52M"
         model = OmniGenomeModel.from_pretrained(model_name)
         self.assertIsNotNone(model)
 
@@ -307,7 +307,7 @@ class OmniGenomeModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCa
 class OmniGenomeModelIntegrationTest(TestCasePlus):
     def test_inference_masked_lm(self):
         with torch.no_grad():
-            model = OmniGenomeForMaskedLM.from_pretrained("yangheng/OmniGenome-52M")
+            model = OmniGenomeForMaskedLM.from_pretrained("anonymous8/OmniGenome-52M")
             model.eval()
             input_ids = torch.tensor([[0, 1, 2, 3, 4, 5]])
             output = model(input_ids)[0]
@@ -324,7 +324,7 @@ class OmniGenomeModelIntegrationTest(TestCasePlus):
 
     def test_inference_no_head(self):
         with torch.no_grad():
-            model = OmniGenomeModel.from_pretrained("yangheng/OmniGenome-52M")
+            model = OmniGenomeModel.from_pretrained("anonymous8/OmniGenome-52M")
             model.eval()
 
             input_ids = torch.tensor([[0, 6, 4, 13, 5, 4, 16, 12, 11, 7, 2]])
@@ -337,14 +337,16 @@ class OmniGenomeModelIntegrationTest(TestCasePlus):
 
     @require_bitsandbytes
     def test_inference_bitsandbytes(self):
-        model = OmniGenomeForMaskedLM.from_pretrained("yangheng/OmniGenome-52M", load_in_8bit=True)
+        model = OmniGenomeForMaskedLM.from_pretrained("anonymous8/OmniGenome-52M", load_in_8bit=True)
+
 
         input_ids = torch.tensor([[0, 6, 4, 13, 5, 4, 16, 12, 11, 7, 2]])
         # Just test if inference works
         with torch.no_grad():
             _ = model(input_ids)[0]
 
-        model = OmniGenomeForMaskedLM.from_pretrained("yangheng/OmniGenome-52M", load_in_4bit=True)
+        model = OmniGenomeForMaskedLM.from_pretrained("anonymous8/OmniGenome-52M", load_in_4bit=True)
+
 
         input_ids = torch.tensor([[0, 6, 4, 13, 5, 4, 16, 12, 11, 7, 2]])
         # Just test if inference works

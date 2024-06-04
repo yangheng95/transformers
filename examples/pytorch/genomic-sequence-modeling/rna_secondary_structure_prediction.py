@@ -14,14 +14,14 @@ if __name__ == "__main__":
 
     sequence = "GAAAAAAAAGGGGAGAAAUCCCGCCCGAAAGGGCGCCCAAAGGGC"
 
-    # yangheng/OmniGenome-186M is a model trained on the RNA secondary structure prediction task
+    # anonymous8/OmniGenome-186M is a model trained on the RNA secondary structure prediction task
     # Use it in zero-shot RNA secondary structure prediction
-    ssp_model = OmniGenomeForTokenClassification.from_pretrained("yangheng/OmniGenome-186M")
+    ssp_model = OmniGenomeForTokenClassification.from_pretrained("anonymous8/OmniGenome-186M")
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     ssp_model.to(device)
 
-    tokenizer = AutoTokenizer.from_pretrained("yangheng/OmniGenome-186M")
+    tokenizer = AutoTokenizer.from_pretrained("anonymous8/OmniGenome-186M")
     inputs = tokenizer(sequence, return_tensors="pt", padding="max_length", truncation=True).to(device)
     with torch.no_grad():
         outputs = ssp_model(**inputs)
